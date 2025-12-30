@@ -1,0 +1,24 @@
+model: mlp
+
+sample_rate: 16000  # 采样率
+# 数据集
+data_path: emotional/datasets/CASIA  # 数据集路径
+
+class_labels: ["angry", "fear", "happy", "neutral", "sad", "surprise"]  # 情感标签
+# class_labels: ["positive", "negative", "neutral"]
+# class_labels: ["angry", "boredom", "disgust", "fear", "happy", "neutral", "sad"]
+
+# 特征
+feature_folder: emotional/features/6-category/opensmile_casia/  # 特征存储文件夹
+feature_method: l  # 'o': opensmile, 'l': librosa  # 特征提取方式
+
+
+# checkpoints
+checkpoint_path: emotional/checkpoints/  # checkpoint 存储路径
+checkpoint_name: MLP_OPENSMILE_IS10  # checkpoint 文件名
+
+# 模型参数
+params: {
+  alpha: 1.9,
+  max_iter: 700
+}

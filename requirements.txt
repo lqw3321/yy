@@ -1,0 +1,35 @@
+# ===== 基础科学计算 / 工具 =====
+numpy
+scipy
+numba
+soundfile
+librosa
+anyascii
+typing_extensions
+
+# ===== Coqui TTS（新维护的 fork，不用老的 TTS 包）=====
+coqui-tts
+coqpit-config
+coqui-tts[zh]
+# ===== ASR：FunASR + ModelScope =====
+funasr
+modelscope
+onnxruntime
+
+# ===== 录音 / 播放（按需选一个）=====
+# Windows 上：
+pyaudio
+# 或者跨平台：
+sounddevice
+
+# ===== 备用 TTS（系统自带声音，做 fallback 用，不想要可以删）=====
+pyttsx3
+
+# ===== LLM / HTTP 调用 =====
+requests
+openai
+
+# ===== 杂项（日志、配置等，一般 stdlib 就够，这里不额外加）=====
+pandas
+modelscope
+tensorflow
