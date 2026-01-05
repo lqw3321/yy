@@ -3,10 +3,11 @@
 
 本项目实现了一个本地运行的中文语音对话系统，包含：
 
-- 语音识别（ASR）：使用 FunASR + ModelScope，支持普通话识别  
-- 大模型对话（LLM）：通过 HTTP API 调用（可接本地或云端模型）  
-- 文本转语音（TTS）：使用本地 **Coqui TTS 中文模型**，完全离线合成  
-- 状态指示：通过“状态灯”提示录音、思考、空闲等状态  
+- 语音识别（ASR）：使用 FunASR + ModelScope，支持普通话识别
+- 语音增强：实时降噪、自动增益控制、语音活动检测，提升识别准确率
+- 大模型对话（LLM）：通过 HTTP API 调用（可接本地或云端模型）
+- 文本转语音（TTS）：使用本地 **Coqui TTS 中文模型**，完全离线合成
+- 状态指示：通过"状态灯"提示录音、思考、空闲等状态  
 
 > 当前版本已经去掉 EDGE-TTS，**所有 TTS 均使用本地 Coqui 模型**。
 
@@ -16,16 +17,20 @@
 
 项目根目录大致包含以下文件（只列含义）：
 
-- main.py：主入口，负责录音 → ASR → LLM → TTS 的整体流程  
-- config.py：统一配置（路径、模型 ID、LLM 地址等）  
-- asr.py：ASR 引擎封装（FunASR）  
-- tts.py：TTS 引擎封装（本地 Coqui TTS，多进程）  
-- llm.py：LLM 调用逻辑封装（HTTP API）  
-- audio_io.py：录音 / 播放相关逻辑  
-- led.py：状态灯相关逻辑  
-- download.py：可选的模型预下载脚本  
-- fix_tts_config_and_test.py：用于修补 Coqui TTS 配置并测试合成  
-- models/：存放本地模型的目录（ASR 缓存 + Coqui TTS 模型）
+- main.py：主入口，负责录音 → 语音增强 → ASR → 声纹识别 → LLM → TTS 的整体流程
+- config.py：统一配置（路径、模型 ID、增强参数、声纹参数、LLM 地址等）
+- asr.py：ASR 引擎封装（FunASR），集成语音增强和声纹识别
+- tts.py：TTS 引擎封装（本地 Coqui TTS，多进程）
+- llm.py：LLM 调用逻辑封装（HTTP API），支持声纹个性化回复
+- enhancement.py：语音增强模块（降噪、AGC、VAD）
+- speaker.py：声纹识别模块（ECAPA-TDNN）
+- register_speaker.py：声纹注册工具（完整的用户界面）
+- test_registration.py：注册功能测试脚本
+- audio_io.py：录音 / 播放相关逻辑
+- led.py：状态灯相关逻辑
+- download.py：可选的模型预下载脚本
+- fix_tts_config_and_test.py：用于修补 Coqui TTS 配置并测试合成
+- models/：存放本地模型的目录（ASR 缓存 + Coqui TTS 模型 + 声纹模型）
 
 ---
 
@@ -54,8 +59,10 @@ python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/s
 - PyTorch（包含 torch 与 torchaudio，CPU 或 GPU 版本均可）  
 - coqui-tts（Coqui TTS）  
 - funasr、modelscope、onnxruntime（ASR）  
-- numpy（建议 < 2.0）  
-- 音频相关包：librosa、soundfile、sounddevice 或 pyaudio  
+- numpy（建议 < 2.0）
+- 音频相关包：librosa、soundfile、sounddevice 或 pyaudio
+- **语音增强包**：noisereduce（降噪）、webrtcvad（语音检测）
+- **声纹识别包**：speechbrain（ECAPA-TDNN）、scikit-learn（相似度计算）
 - LLM 调用相关：requests、openai（如使用兼容 OpenAI 协议的接口）  
 
 如安装 pyaudio 困难，可只使用 sounddevice，并在项目中统一使用它录音。
@@ -134,11 +141,29 @@ python fix_tts_config_and_test.py
 
 项目中的 config.py 用于配置路径与参数，包括：
 
-- 项目根目录与 models/ 路径  
-- ASR 模型 ID（FunASR / ModelScope）  
-- TTS 模型路径（Coqui，本地文件）  
-- LLM 服务的 Base URL、模型名称、API Key 环境变量名等  
-- 采样率、超时时间、是否启用某些兜底逻辑等  
+- 项目根目录与 models/ 路径
+- ASR 模型 ID（FunASR / ModelScope）
+- TTS 模型路径（Coqui，本地文件）
+- **语音增强配置**：增强模式、降噪强度、AGC参数、VAD参数等
+- LLM 服务的 Base URL、模型名称、API Key 环境变量名等
+- 采样率、超时时间、是否启用某些兜底逻辑等
+
+### 5.1 语音增强配置
+
+语音增强支持4种模式：
+
+- `none`：禁用增强（直通模式）
+- `basic`：基础增强（降噪 + AGC）
+- `advanced`：高级增强（降噪 + AGC + VAD）
+- `full`：完整增强（所有功能，包括预留的深度学习模型）
+
+```python
+# 在 config.py 中配置
+ENHANCEMENT_MODE = "advanced"  # 推荐模式
+NOISE_REDUCTION_STRENGTH = 0.8  # 降噪强度 (0-1)
+AGC_TARGET_LEVEL = 0.8          # AGC目标电平
+VAD_AGGRESSIVENESS = 2          # VAD灵敏度 (0-3)
+```  
 
 若你需要在新环境中复现当前版本，请确保：
 
@@ -161,7 +186,62 @@ python fix_tts_config_and_test.py
 conda activate voice
 python download.py
 
-### 6.2 测试 TTS 模块（可选）
+### 6.2 测试语音增强模块（可选）
+
+若想单独测试语音增强功能，可以运行：
+
+conda activate voice
+python enhancement.py demo
+
+这会演示语音增强的效果，包括降噪和音量调节。
+
+### 6.3 测试声纹识别模块（可选）
+
+#### 运行注册工具：
+```bash
+conda activate voice
+python register_speaker.py
+```
+
+#### 测试注册功能：
+```bash
+conda activate voice
+python test_registration.py
+```
+
+### 6.5 声纹注册指南
+
+#### 启动注册工具：
+```bash
+conda activate voice
+python register_speaker.py
+```
+
+#### 在语音助手中注册：
+运行主程序后，在键盘输入中使用以下命令：
+- `register` - 启动声纹注册工具
+- `users` - 查看已注册用户
+
+#### 注册流程：
+1. 运行注册工具或在主程序中输入 `register`
+2. 选择"1. 交互式注册用户"
+3. 输入用户名（字母、数字、下划线）
+4. 按照提示录制3个语音样本
+5. 每个样本说不同的句子，保持自然语速
+6. 注册完成后，系统会显示注册成功的用户信息
+
+#### 注册数据存储：
+- 用户声纹特征保存在：`models/speaker/database.pkl`
+- 注册信息在程序重启后仍然保留
+
+#### 最佳实践：
+- ✅ 选择安静环境录音
+- ✅ 使用不同的句子进行注册
+- ✅ 每个样本录制3-5秒
+- ✅ 保持自然语速和音量
+- ✅ 建议注册3-5个样本以提高准确率
+
+### 6.4 测试 TTS 模块（可选）
 
 若想单独测试 TTS，可以运行（按你当前版本的 tts.py 支持情况）：
 
@@ -179,11 +259,20 @@ python main.py
 
 典型交互流程：
 
-1. 终端提示你按键开始录音；  
-2. 录音结束后，系统显示“正在识别”，然后输出 ASR 结果；  
-3. 系统将文本传给 LLM，生成回复；  
-4. 回复文本交给 Coqui TTS 合成和播放；  
-5. 状态灯在不同阶段切换（录音 / 思考 / 播放 / 空闲）。
+1. 终端提示你按键开始录音；
+2. 录音结束后，系统显示"正在识别"，然后输出 ASR 结果；
+3. 系统自动进行声纹识别，显示说话人身份；
+4. 系统将文本+情感+声纹信息传给 LLM，生成个性化回复；
+5. 回复文本交给 Coqui TTS 合成和播放；
+6. 状态灯在不同阶段切换（录音 / 思考 / 播放 / 空闲）。
+
+#### 声纹注册流程：
+
+1. 运行程序后，输入 `register` 启动注册工具
+2. 按照提示输入用户名
+3. 录制3个语音样本（每个3秒）
+4. 注册完成后，输入 `users` 查看注册状态
+5. 现在系统就能识别您的声音了！
 
 ---
 
@@ -211,7 +300,9 @@ sudo apt install portaudio19-dev libsndfile1 -y
 pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-提示：coqui-tts 仅支持 Python 3.9-3.12，如遇 “No matching distribution”，请检查当前 Python 版本。
+pip install noisereduce webrtcvad librosa --upgrade      # 语音增强依赖
+pip install speechbrain scikit-learn huggingface-hub    # 声纹识别依赖
+提示：coqui-tts 仅支持 Python 3.9-3.12，如遇 "No matching distribution"，请检查当前 Python 版本。
 pip install pandas
 sudo apt install ffmpeg
 3. 准备模型文件夹（拷贝或解压得到）：

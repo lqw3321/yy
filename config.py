@@ -27,9 +27,55 @@ TTS_VOCODER_PATH = None
 TTS_VOCODER_CONFIG_PATH = None
 USE_PYTTXS3_FALLBACK = True
 
+# ========== 语音增强配置 ==========
+
+# 增强模式: 'none', 'basic', 'advanced', 'full'
+ENHANCEMENT_MODE = "advanced"
+
+# 降噪参数
+NOISE_REDUCTION_STRENGTH = 0.8      # 降噪强度 (0-1)
+MIN_VOICE_RATIO = 0.1               # 最小语音占比
+AGC_TARGET_LEVEL = 0.8              # AGC目标电平
+AGC_MAX_GAIN = 10.0                 # AGC最大增益
+
+# VAD参数 (语音活动检测)
+VAD_AGGRESSIVENESS = 2              # 0-3，越高越严格
+VAD_FRAME_DURATION = 30             # 帧长度(ms)
+
+# 增强模型路径
+ENHANCEMENT_MODELS_DIR = os.path.join(MODELS_DIR, "enhancement")
+RN_NOISE_MODEL_PATH = os.path.join(ENHANCEMENT_MODELS_DIR, "rnnoise")
+
+# ========== 声纹识别配置 ==========
+
+SPEAKER_RECOGNITION_ENABLED = True
+SPEAKER_MODEL_TYPE = "ecapa_tdnn"         # ecapa_tdnn / cam_plus
+SPEAKER_MODEL_SOURCE = "speechbrain"      # speechbrain / modelscope / local
+SPEAKER_MODEL_PATH = os.path.join(MODELS_DIR, "speaker", "ecapa_tdnn")
+
+# 模型参数
+SPEAKER_EMBEDDING_DIM = 192               # ECAPA-TDNN输出维度
+SPEAKER_SAMPLE_RATE = 16000               # 采样率
+
+# 相似度参数
+SPEAKER_SIMILARITY_THRESHOLD = 0.75       # 相似度阈值 (0.7-0.8推荐)
+SPEAKER_SIMILARITY_METRIC = "cosine"      # cosine / euclidean / plda
+
+# 用户管理
+MAX_REGISTERED_SPEAKERS = 20              # 最大注册用户数
+MIN_ENROLLMENT_SAMPLES = 3                # 最少注册样本数
+SPEAKER_DATABASE_PATH = os.path.join(MODELS_DIR, "speaker", "database.pkl")
+
+# 音频预处理
+SPEAKER_CHUNK_DURATION = 3.0              # 音频分块长度(秒)
+SPEAKER_OVERLAP_DURATION = 0.5            # 分块重叠长度(秒)
+SPEAKER_MIN_AUDIO_LENGTH = 1.0            # 最短音频长度(秒)
+
 MODEL_PATHS = {
     "asr_model": ASR_MODEL_PATH,
     "tts_model": TTS_MODEL_PATH,
+    "enhancement_models": ENHANCEMENT_MODELS_DIR,
+    "speaker_model": SPEAKER_MODEL_PATH,
 }
 
 # ========== 其他配置 (保持不变) ==========

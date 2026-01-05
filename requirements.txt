@@ -29,6 +29,20 @@ pyttsx3
 requests
 openai
 
+# ===== 语音增强相关 =====
+noisereduce>=3.0.0        # 经典降噪库
+webrtcvad>=2.0.10         # 语音活动检测
+rnnoise-python>=1.0.0     # RNNoise降噪库
+librosa>=0.10.0           # 音频处理 (已有)
+scipy>=1.10.0             # 信号处理 (已有)
+
+# ===== 声纹识别相关 =====
+speechbrain>=0.5.16       # SpeechBrain框架 (ECAPA-TDNN)
+torch>=2.0.0              # PyTorch
+torchaudio>=2.0.0         # 音频处理
+scikit-learn>=1.3.0       # 相似度计算
+huggingface-hub>=0.17.0   # HuggingFace模型下载
+
 # ===== 杂项（日志、配置等，一般 stdlib 就够，这里不额外加）=====
 pandas
 modelscope

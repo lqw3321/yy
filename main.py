@@ -36,6 +36,30 @@ class VoiceAssistant:
             self.current_emotion = "neutral"
 
         # -----------------------------------------------------------
+        # 2. 初始化语音增强器
+        # -----------------------------------------------------------
+        print("[System] 正在加载语音增强模块...")
+        try:
+            from enhancement import AudioEnhancer
+            self.audio_enhancer = AudioEnhancer()
+        except Exception as e:
+            print(f"[Error] 语音增强模块加载失败: {e}")
+            self.audio_enhancer = None
+
+        # -----------------------------------------------------------
+        # 3. 初始化声纹识别器
+        # -----------------------------------------------------------
+        print("[System] 正在加载声纹识别模块...")
+        try:
+            from speaker import ECAPATDNNRecognizer
+            self.speaker_recognizer = ECAPATDNNRecognizer()
+            self.current_speaker = "unknown"
+        except Exception as e:
+            print(f"[Error] 声纹识别模块加载失败: {e}")
+            self.speaker_recognizer = None
+            self.current_speaker = "unknown"
+
+        # -----------------------------------------------------------
         # 2. 定义队列
         # -----------------------------------------------------------
         self.q_audio = multiprocessing.Queue(maxsize=2000)      # Mic -> ASR (原始PCM)
@@ -50,10 +74,10 @@ class VoiceAssistant:
         self.q_cmd_input = multiprocessing.Queue()              # Keyboard -> Main
 
         # -----------------------------------------------------------
-        # 3. 启动子进程
+        # 4. 启动子进程
         # -----------------------------------------------------------
-        # ASR 进程：输出到 q_asr_output
-        self.p_asr = ASREngine(self.q_audio, self.q_asr_output, self.q_asr_cmd, mock=mock_mode)
+        # ASR 进程：输出到 q_asr_output，传入语音增强器和声纹识别器
+        self.p_asr = ASREngine(self.q_audio, self.q_asr_output, self.q_asr_cmd, mock=mock_mode, enhancer=self.audio_enhancer, speaker_recognizer=self.speaker_recognizer)
         
         # LLM 进程：输入改为 q_llm_input
         self.p_llm = LLMEngine(self.q_llm_input, self.q_tts_text, mock=mock_mode)
@@ -70,8 +94,10 @@ class VoiceAssistant:
 
     def start(self):
         print("=" * 50)
-        print("  语音交互系统 (含情感识别) 启动")
-        print("  [回车键]  切换 录音 / 停止并发送")
+        print("  语音交互系统 (含情感识别+声纹识别) 启动")
+        print("  [回车键]    切换 录音 / 停止并发送")
+        print("  [register]  启动声纹注册工具")
+        print("  [users]     查看已注册用户")
         print("  [q] + 回车  退出程序")
         print("=" * 50)
 
@@ -109,6 +135,10 @@ class VoiceAssistant:
 
                     if cmd == "q":
                         self.shutdown()
+                    elif cmd == "register":
+                        self.start_speaker_registration()
+                    elif cmd == "users":
+                        self.show_registered_users()
                     else:
                         if self.is_recording:
                             # -------- 停止录音 --------
@@ -173,22 +203,32 @@ class VoiceAssistant:
                         
                         # 兼容处理：asr_data 可能是纯文本字符串，也可能是字典
                         text = ""
+                        emotion = "neutral"
+                        speaker = "unknown"
+
                         if isinstance(asr_data, dict):
                             text = asr_data.get("text", "")
+                            emotion = asr_data.get("emotion", "neutral")
+                            speaker = asr_data.get("speaker", "unknown")
                         elif isinstance(asr_data, str):
                             text = asr_data
-                        
+
                         if text:
                             print(f"[Main] 识别文本: {text}")
-                            # --- 关键步骤：打包 文本 + 情感 发给 LLM ---
+                            if speaker != "unknown":
+                                print(f"[Main] 说话人: {speaker}")
+
+                            # --- 关键步骤：打包 文本 + 情感 + 声纹 发给 LLM ---
                             packet = {
                                 "text": text,
-                                "emotion": self.current_emotion  # 附带刚才识别的情感
+                                "emotion": emotion,
+                                "speaker": speaker
                             }
                             self.q_llm_input.put(packet)
-                            
-                            # 重置情感状态 (防止影响下一句)
+
+                            # 更新当前状态
                             self.current_emotion = "neutral"
+                            self.current_speaker = "unknown"
 
                 except queue.Empty:
                     pass
@@ -216,6 +256,42 @@ class VoiceAssistant:
     def switch_state(self, s: SystemState):
         self.state = s
         self.led.set_state(s)
+
+    def start_speaker_registration(self):
+        """启动声纹注册流程"""
+        print("\n🎤 启动声纹注册工具...")
+        try:
+            # 导入注册工具
+            from register_speaker import SpeakerRegistrationTool
+
+            # 创建注册工具实例
+            tool = SpeakerRegistrationTool()
+
+            # 运行注册工具
+            tool.run()
+
+            print("\n✅ 返回语音助手主界面")
+            print("按回车键继续对话...")
+
+        except Exception as e:
+            print(f"❌ 启动注册工具失败: {e}")
+            print("请手动运行: python register_speaker.py")
+
+    def show_registered_users(self):
+        """显示已注册用户"""
+        try:
+            users = self.speaker_recognizer.get_user_list()
+            if users:
+                print(f"\n👥 已注册用户 ({len(users)} 个):")
+                for user in users:
+                    count = self.speaker_recognizer.get_user_count(user)
+                    status = "✅" if count >= 3 else "⚠️ "
+                    print(f"  {status} {user}: {count} 个样本")
+            else:
+                print("\n📭 暂无注册用户")
+                print("输入 'register' 开始注册声纹")
+        except Exception as e:
+            print(f"❌ 获取用户列表失败: {e}")
 
     def shutdown(self):
         print("\n正在退出...")
