@@ -8,6 +8,10 @@ MODELS_DIR = os.path.join(BASE_DIR, "models")
 os.makedirs(MODELS_DIR, exist_ok=True)
 ASR_FLAG_FILE = os.path.join(BASE_DIR, ".asr_download_ok")
 
+# 用户目录（避免Windows权限问题）
+USER_MODELS_DIR = os.path.expanduser("~/.voice_models")
+os.makedirs(USER_MODELS_DIR, exist_ok=True)
+
 # ========== ASR 配置 ==========
 
 # 1. 远程仓库 ID (必须带 iic/ 前缀)
@@ -50,7 +54,7 @@ RN_NOISE_MODEL_PATH = os.path.join(ENHANCEMENT_MODELS_DIR, "rnnoise")
 
 SPEAKER_RECOGNITION_ENABLED = True
 SPEAKER_MODEL_TYPE = "ecapa_tdnn"         # ecapa_tdnn / cam_plus
-SPEAKER_MODEL_SOURCE = "speechbrain"      # speechbrain / modelscope / local
+SPEAKER_MODEL_SOURCE = "speechbrain"          # speechbrain / modelscope / local / offline
 SPEAKER_MODEL_PATH = os.path.join(MODELS_DIR, "speaker", "ecapa_tdnn")
 
 # 模型参数
@@ -58,12 +62,12 @@ SPEAKER_EMBEDDING_DIM = 192               # ECAPA-TDNN输出维度
 SPEAKER_SAMPLE_RATE = 16000               # 采样率
 
 # 相似度参数
-SPEAKER_SIMILARITY_THRESHOLD = 0.75       # 相似度阈值 (0.7-0.8推荐)
+SPEAKER_SIMILARITY_THRESHOLD = 0.5     # 相似度阈值 (0.7-0.8推荐)
 SPEAKER_SIMILARITY_METRIC = "cosine"      # cosine / euclidean / plda
 
 # 用户管理
 MAX_REGISTERED_SPEAKERS = 20              # 最大注册用户数
-MIN_ENROLLMENT_SAMPLES = 3                # 最少注册样本数
+MIN_ENROLLMENT_SAMPLES = 5                # 最少注册样本数
 SPEAKER_DATABASE_PATH = os.path.join(MODELS_DIR, "speaker", "database.pkl")
 
 # 音频预处理
@@ -76,6 +80,7 @@ MODEL_PATHS = {
     "tts_model": TTS_MODEL_PATH,
     "enhancement_models": ENHANCEMENT_MODELS_DIR,
     "speaker_model": SPEAKER_MODEL_PATH,
+    "user_models": USER_MODELS_DIR,
 }
 
 # ========== 其他配置 (保持不变) ==========
@@ -86,7 +91,7 @@ LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "Qwen3-235B-A22B-FP8")
 
 SAMPLE_RATE = 16000
 CHUNK_SIZE = 960
-MIC_DEVICE_INDEX = 0
+MIC_DEVICE_INDEX = 1
 
 class SystemState(Enum):
     INITIALIZING = auto()

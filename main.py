@@ -96,7 +96,7 @@ class VoiceAssistant:
         print("=" * 50)
         print("  语音交互系统 (含情感识别+声纹识别) 启动")
         print("  [回车键]    切换 录音 / 停止并发送")
-        print("  [register]  启动声纹注册工具")
+        print("  [register]  启动集成声纹注册 (使用主系统音频设备)")
         print("  [users]     查看已注册用户")
         print("  [q] + 回车  退出程序")
         print("=" * 50)
@@ -136,7 +136,7 @@ class VoiceAssistant:
                     if cmd == "q":
                         self.shutdown()
                     elif cmd == "register":
-                        self.start_speaker_registration()
+                        self.start_speaker_registration(audio_dev)
                     elif cmd == "users":
                         self.show_registered_users()
                     else:
@@ -257,25 +257,40 @@ class VoiceAssistant:
         self.state = s
         self.led.set_state(s)
 
-    def start_speaker_registration(self):
-        """启动声纹注册流程"""
-        print("\n🎤 启动声纹注册工具...")
+    def start_speaker_registration(self, audio_device):
+        """启动声纹注册流程（集成到主系统）"""
+        print("\n🎤 启动声纹注册模式...")
+        print("现在您可以使用主系统的麦克风和ASR引擎进行注册")
+
         try:
-            # 导入注册工具
-            from register_speaker import SpeakerRegistrationTool
+            # 创建集成注册管理器
+            from integrated_registration import IntegratedRegistrationManager
+            registration_manager = IntegratedRegistrationManager(
+                audio_device=audio_device,
+                speaker_recognizer=self.speaker_recognizer,
+                audio_enhancer=self.audio_enhancer,
+                asr_queue=self.q_audio,  # ASR音频队列
+                text_queue=self.q_asr_output  # ASR文本队列
+            )
 
-            # 创建注册工具实例
-            tool = SpeakerRegistrationTool()
-
-            # 运行注册工具
-            tool.run()
+            # 运行集成注册
+            registration_manager.run_registration()
 
             print("\n✅ 返回语音助手主界面")
             print("按回车键继续对话...")
 
         except Exception as e:
-            print(f"❌ 启动注册工具失败: {e}")
-            print("请手动运行: python register_speaker.py")
+            print(f"❌ 启动注册模式失败: {e}")
+            import traceback
+            traceback.print_exc()
+            print("回退到独立注册工具...")
+            try:
+                from register_speaker import SpeakerRegistrationTool
+                tool = SpeakerRegistrationTool()
+                tool.run()
+            except Exception as e2:
+                print(f"❌ 独立注册工具也失败: {e2}")
+                print("请检查系统配置")
 
     def show_registered_users(self):
         """显示已注册用户"""

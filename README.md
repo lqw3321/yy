@@ -197,7 +197,10 @@ python enhancement.py demo
 
 ### 6.3 测试声纹识别模块（可选）
 
-#### 运行注册工具：
+#### 集成注册方式（推荐）：
+在主系统运行时输入 `register` 命令，使用与主系统相同的音频设备和ASR引擎。
+
+#### 独立注册工具：
 ```bash
 conda activate voice
 python register_speaker.py
@@ -211,7 +214,21 @@ python test_registration.py
 
 ### 6.5 声纹注册指南
 
-#### 启动注册工具：
+#### 集成注册（推荐）：
+1. 启动主系统：`python main.py`
+2. 输入 `register` 进入注册模式
+3. 使用主系统的麦克风和ASR引擎
+4. **注意**：集成注册现在使用与主系统相同的设备索引，确保录音质量一致
+
+#### 麦克风设备设置：
+如果录音质量差（RMS值很低），请检查麦克风设备索引：
+
+1. 运行 `python check_devices.py` 查看所有音频设备
+2. 找到真正的麦克风设备（避免"Microsoft 声音映射器"）
+3. 在 `config.py` 中设置正确的 `MIC_DEVICE_INDEX`
+4. 示例：`MIC_DEVICE_INDEX = 1`  # HyperX耳麦麦克风
+
+#### 独立注册工具：
 ```bash
 conda activate voice
 python register_speaker.py
